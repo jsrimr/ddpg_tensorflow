@@ -12,15 +12,22 @@ class ActorNetwork(object):
         self.TAU = TAU
         self.LEARNING_RATE = LEARNING_RATE
 
-        #Now create the model
+        # Now create the model
         self.state, self.outputs, self.weights = self.create_actor_network(state_size, 'behavior')
         self.target_state, self.target_outputs, self.target_weights = self.create_actor_network(state_size, 'target', trainable=False)
-        ema = tf.train.ExponentialMovingAverage(decay=1-self.TAU)
-        self.target_update = ema.apply(self.target_weights)
+
+        # TODO : Policy gradient computation
+        """
+        self.action_gradient = tf.placeholder(
+        self.policy_grad = tf.gradients(
+        grads = zip(self.policy_grad, self.weights)
+        self.optimize = tf.train.AdamOptimizer(
+        """
         self.action_gradient = tf.placeholder(tf.float32, [None, action_size])
-        self.params_grad = tf.gradients(self.outputs, self.weights, -self.action_gradient)
-        grads = zip(self.params_grad, self.weights)
-        self.optimize = tf.train.AdamOptimizer(LEARNING_RATE).apply_gradients(grads)
+        self.unnormalized_actor_gradients = tf.gradients(self.outputs, self.weights, -self.action_gradient)
+        self.actor_gradients = [ unnz_actor_grad/self.BATCH_SIZE for unnz_actor_grad in self.unnormalized_actor_gradients]
+        self.optimize = tf.train.AdamOptimizer(LEARNING_RATE).apply_gradients(zip(self.actor_gradients, self.weights))
+        
         self.update_ops = self.build_update_operation()
         sess.run(tf.global_variables_initializer())
 
@@ -48,8 +55,9 @@ class ActorNetwork(object):
                 h1 = tf.layers.dense(h0, units=HIDDEN2_UNITS, activation=tf.nn.relu, kernel_initializer= tf.contrib.layers.xavier_initializer(), name="h1", trainable=trainable)
                 Steering = tf.layers.dense(h1, 1, activation=tf.tanh, kernel_initializer=tf.initializers.random_normal(), name="Steering", trainable=trainable)
                 Acceleration = tf.layers.dense(h1, 1, activation=tf.sigmoid, kernel_initializer=tf.initializers.random_normal(), name="Acceleration", trainable=trainable)
-                Brake = tf.layers.dense(h1, 1, activation=tf.sigmoid, kernel_initializer=tf.initializers.random_normal(), name="Brake", trainable=trainable)
-                V = tf.concat([Steering, Acceleration, Brake], axis=-1)
+                # Brake = tf.layers.dense(h1, 1, activation=tf.sigmoid, kernel_initializer=tf.initializers.random_normal(), name="Brake", trainable=trainable)
+                V = tf.concat([Steering, Acceleration], axis=-1)
+                # V = tf.concat([Steering, Acceleration, Brake], axis=-1)
         weights = [var for var in tf.global_variables() if "actor" in var.name and name in var.name]
         return S, V, weights
 

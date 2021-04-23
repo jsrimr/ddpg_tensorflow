@@ -15,13 +15,22 @@ class CriticNetwork(object):
         self.action_size = action_size
         self.label = tf.placeholder(tf.float32, [None, action_size])
 
-        #Now create the model
+        # Now create the model
         self.state, self.outputs, self.action, self.weights = self.create_critic_network(state_size, action_size, 'behavior')
         self.target_state, self.target_outputs, self.target_action, self.target_weights = self.create_critic_network(state_size, action_size, 'target', trainable=False)
-        self.action_grads = tf.gradients(self.outputs, self.action)  #GRADIENTS for policy update
-        self.mse_loss = tf.reduce_mean(tf.square(self.label - self.outputs))
+        
+        # TODO: Critic loss and action gradient for the policy gradient computation
+        """
+        self.action_grads = tf.gradients(  # gradients for policy update
+        self.mse_loss = tf.reduce_mean(tf.square(
         # weight_decay = tf.add_n([0.01*tf.nn.l2_loss(var) for var in self.weights if "kernel" in var.name])
-        self.optimize = tf.train.AdamOptimizer(LEARNING_RATE).minimize(self.mse_loss)
+        self.optimize = tf.train.AdamOptimizer(
+        """
+        self.action_grads = tf.gradients(self.outputs, self.action)
+        self.mse_loss = tf.reduce_mean(tf.squared_difference(self.outputs, self.target_outputs))
+        self.optimize = tf.train.AdamOptimizer(
+            LEARNING_RATE).minimize(self.mse_loss)
+            
         self.update_ops = self.build_update_operation()
         sess.run(tf.global_variables_initializer())
 

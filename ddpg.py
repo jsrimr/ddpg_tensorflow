@@ -11,18 +11,18 @@ from CriticNetwork import CriticNetwork
 from OU import OU
 import timeit
 
-OU = OU()       #Ornstein-Uhlenbeck Process
+OU = OU()       # Ornstein-Uhlenbeck Process
 
-def playGame(train_indicator=1):    #1 means Train, 0 means simply Run
+def playGame(train_indicator=1):    # 1 means Train, 0 means simply Run
     BUFFER_SIZE = 100000
     BATCH_SIZE = 32
     GAMMA = 0.99
-    TAU = 0.001     #Target Network HyperParameters
-    LRA = 0.00005    #Learning rate for Actor
-    LRC = 0.0005     #Lerning rate for Critic
+    TAU = 0.001     # Target Network HyperParameters
+    LRA = 0.00005    # Learning rate for Actor
+    LRC = 0.0005     # Lerning rate for Critic
 
-    action_dim = 3  #Steering/Acceleration/Brake
-    state_dim = 29  #of sensors input
+    action_dim = 2  # Steering/Acceleration/(Brake)
+    state_dim = 29  # dim of sensors input
 
     np.random.seed(1337)
 
@@ -54,7 +54,7 @@ def playGame(train_indicator=1):    #1 means Train, 0 means simply Run
     # Generate a Torcs environment
     env = TorcsEnv(vision=vision, throttle=True, gear_change=False)
 
-    #Now load the weight
+    # Now load the weight
     # loading networks
     print("Now we load the weight")
     saver = tf.train.Saver()
@@ -65,6 +65,7 @@ def playGame(train_indicator=1):    #1 means Train, 0 means simply Run
     else:
         print("Could not find old network weights")
     print("TORCS Experiment Start.")
+
     for i in range(episode_count):
 
         print("Episode : " + str(i) + " Replay Buffer " + str(buff.count()))
@@ -77,7 +78,7 @@ def playGame(train_indicator=1):    #1 means Train, 0 means simply Run
         s_t = np.hstack((ob.angle, ob.track, ob.trackPos, ob.speedX, ob.speedY,  ob.speedZ, ob.wheelSpinVel/100.0, ob.rpm))
      
         total_reward = 0.
-        # totalLaptime = 0.
+
         for j in range(max_steps):
             loss = 0
             if train_indicator:
@@ -89,24 +90,24 @@ def playGame(train_indicator=1):    #1 means Train, 0 means simply Run
             a_t_original = actor.predict(s_t.reshape(1, s_t.shape[0]))
             noise_t[0][0] = train_indicator * max(epsilon, 0) * OU.function(a_t_original[0][0],  0.0, 0.60, 0.30)
             noise_t[0][1] = train_indicator * max(epsilon, 0) * OU.function(a_t_original[0][1],  0.5, 1.00, 0.10)
-            noise_t[0][2] = train_indicator * max(epsilon, 0) * OU.function(a_t_original[0][2], -0.1, 1.00, 0.05)
+            # noise_t[0][2] = train_indicator * max(epsilon, 0) * OU.function(a_t_original[0][2], -0.1, 1.00, 0.05)
 
-            #The following code do the stochastic brake
-            #if random.random() <= 0.1:
-            #    print("********Now we apply the brake***********")
-            #    noise_t[0][2] = train_indicator * max(epsilon, 0) * OU.function(a_t_original[0][2],  0.2 , 1.00, 0.10)
+            # The following code do the stochastic brake
+            # if random.random() <= 0.1:
+            #     print("********Now we apply the brake***********")
+            #     noise_t[0][2] = train_indicator * max(epsilon, 0) * OU.function(a_t_original[0][2],  0.2 , 1.00, 0.10)
 
             a_t[0][0] = a_t_original[0][0] + noise_t[0][0]
             a_t[0][1] = a_t_original[0][1] + noise_t[0][1]
-            a_t[0][2] = a_t_original[0][2] + noise_t[0][2]
+            # a_t[0][2] = a_t_original[0][2] + noise_t[0][2]
 
             ob, r_t, done, info = env.step(a_t[0], train_indicator)
 
             s_t1 = np.hstack((ob.angle, ob.track, ob.trackPos, ob.speedX, ob.speedY, ob.speedZ, ob.wheelSpinVel/100.0, ob.rpm))
         
-            buff.add(s_t, a_t[0], r_t, s_t1, done)      #Add replay buffer
+            buff.add(s_t, a_t[0], r_t, s_t1, done)      # Add to replay buffer
             
-            #Do the batch update
+            # Do the batch update
             batch = buff.getBatch(BATCH_SIZE)
             states = np.asarray([e[0] for e in batch])
             actions = np.asarray([e[1] for e in batch])
@@ -135,7 +136,7 @@ def playGame(train_indicator=1):    #1 means Train, 0 means simply Run
             s_t = s_t1
 
             if np.mod(step, 100) == 0:
-                print("Episode", i, "Step", step, "Epsilon", epsilon, "Action", a_t, "Reward", r_t, "Loss", loss) #, "curLapTime", ob.curLapTime)
+                print("Episode", i, "Step", step, "Epsilon", epsilon, "Action", a_t, "Reward", r_t, "Loss", loss) 
         
             step += 1
             if i == 0:
@@ -143,9 +144,8 @@ def playGame(train_indicator=1):    #1 means Train, 0 means simply Run
             if done:
                 break
 
-        # if np.mod(i, 3) == 0:
         if (train_indicator) and i > 0:
-            if env.lapTime < min_laptime and env.num_lap == 10:
+            if env.lapTime < min_laptime and env.num_lap >= 2:
                 min_laptime = env.lapTime
                 print("Now we save model")
                 saver.save(sess, 'saved_networks/' + 'network' + '-ddpg-{}'.format(i))

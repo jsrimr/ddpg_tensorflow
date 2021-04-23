@@ -11,7 +11,9 @@ import time
 
 
 class TorcsEnv:
-    terminal_judge_start = 1000  # If after 100 timestep still no progress, terminated
+    terminal_judge = 0
+    terminal_judge_start = 100  # If after this timestep still no progress, terminated
+    terminal_judge_time = 50
     termination_limit_progress = 5  # [km/h], episode terminates if car is running slower than this limit
     default_speed = 50
 
@@ -94,7 +96,7 @@ class TorcsEnv:
                 action_torcs['accel'] -= .2
         else:
             action_torcs['accel'] = this_action['accel']
-            action_torcs['brake'] = this_action['brake']
+            # action_torcs['brake'] = this_action['brake']
 
         #  Automatic Gear Change by Snakeoil
         if self.gear_change is True:
@@ -155,9 +157,18 @@ class TorcsEnv:
         #    client.R.d['meta'] = True
         if is_training:
             if self.terminal_judge_start < self.time_step: # Episode terminates if the progress of agent is small
-               if progress < self.termination_limit_progress:
-                   print("No progress")
-                   client.R.d['meta'] = True
+                if progress < self.termination_limit_progress:
+                    self.terminal_judge += 1
+
+                    if self.terminal_judge == self.terminal_judge_time :
+                        self.terminal_judge = 0
+
+                        print("No progress - ", progress)
+                        episode_terminate = True
+                        client.R.d['meta'] = True
+                else : 
+                    terminal_judge = 0
+
 
             if np.cos(obs['angle']) < 0: # Episode is terminated if the agent runs backward
                 print("Running backward")
@@ -230,7 +241,7 @@ class TorcsEnv:
 
         if self.throttle is True:  # throttle action is enabled
             torcs_action.update({'accel': u[1]})
-            torcs_action.update({'brake': u[2]})
+            # torcs_action.update({'brake': u[2]})
 
         if self.gear_change is True: # gear change action is enabled
             torcs_action.update({'gear': int(u[3])})
